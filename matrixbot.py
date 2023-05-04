@@ -40,6 +40,12 @@ from pyppeteer import launch
 """
 
 
+try:
+    os.mkdir("temp")
+except:
+    pass
+
+
 async def api_data(query="", onlymods=False, concise=False):
     global start, data
     url_matrix = f"https://lukebot.rcloud3.xyz/log/{query}"
@@ -73,12 +79,12 @@ async def api_data(query="", onlymods=False, concise=False):
             table.append(row)
         table.insert(0, ["mod", *mod_actions])
 
-        with open("output.csv", "w") as f:
+        with open("temp/output.csv", "w") as f:
             writer = csv.writer(f)
             writer.writerows(table)
 
         df = await asyncio.get_event_loop().run_in_executor(
-            None, lambda: pd.read_csv("output.csv")
+            None, lambda: pd.read_csv("temp/output.csv")
         )
 
         df = df.drop(df.columns[-1], axis=1)
@@ -90,11 +96,11 @@ async def api_data(query="", onlymods=False, concise=False):
         total_actions = df["total"].sum()
         df["% actions"] = round((df["total"] / total_actions) * 100, 0).astype(int)
         df = df.sort_values(by=["total"], ascending=False)
-        df.to_csv("output.csv", index=False)
+        df.to_csv("temp/output.csv", index=False)
         new_df = ""
         if onlymods:
             new_df = pd.DataFrame(df["mod"])
-            new_df.to_csv("output.csv", index=False)
+            new_df.to_csv("temp/output.csv", index=False)
         elif concise:
             cols = df.columns.tolist()
 
@@ -105,13 +111,13 @@ async def api_data(query="", onlymods=False, concise=False):
             # Reorder the columns in the DataFrame
             df = df[cols]
             df = df.drop(df.columns[3:], axis=1)
-            df.to_csv("output.csv", index=False)
+            df.to_csv("temp/output.csv", index=False)
         else:
-            df.to_csv("output.csv", index=False)
+            df.to_csv("temp/output.csv", index=False)
 
-        pd.read_csv("output.csv").to_html("Table.html")
+        pd.read_csv("temp/output.csv").to_html("temp/Table.html")
 
-        with open("Table.html", "a") as f:
+        with open("temp/Table.html", "a") as f:
             f.write(open("format.html").read())
 
         if os.name == "nt":
@@ -119,29 +125,29 @@ async def api_data(query="", onlymods=False, concise=False):
             async def image_process():
                 browser = await launch()
                 page = await browser.newPage()
-                await page.goto("file:///" + os.path.abspath("Table.html"))
-                await page.screenshot({"path": "ss.png", "fullPage": "true"})
+                await page.goto("file:///" + os.path.abspath("temp/Table.html"))
+                await page.screenshot({"path": "temp/ss.png", "fullPage": "true"})
                 await browser.close()
 
             await image_process()
         else:
-            imgkit.from_file("Table.html", "ss.png")
+            imgkit.from_file("temp/Table.html", "temp/ss.png")
 
-        img = cv2.imread("ss.png")
+        img = cv2.imread("temp/ss.png")
         blurred = cv2.blur(img, (3, 3))
         canny = cv2.Canny(blurred, 50, 200)
         pts = np.argwhere(canny > 0)
         y1, x1 = pts.min(axis=0)
         y2, x2 = pts.max(axis=0)
         cropped = img[y1:y2, x1:x2]
-        cv2.imwrite("cropped.png", cropped)
-        ImageOps.expand(Image.open("cropped.png"), border=10, fill="white").save(
-            "output.png"
+        cv2.imwrite("temp/cropped.png", cropped)
+        ImageOps.expand(Image.open("temp/cropped.png"), border=10, fill="white").save(
+            "temp/output.png"
         )
 
         print("Image Processing:", time.time() - start)
         start = time.time()
-        return discord.File(open("output.png", "rb"), filename="output.png")
+        return discord.File(open("temp/output.png", "rb"), filename="output.png")
 
     else:
         return -1
@@ -263,7 +269,7 @@ async def help(interaction: discord.Interaction):
 2) List of available subreddits:
 /sublist
 
-3) Subreddit Modlogs Matrix:
+3) Subreddit Mod logs Matrix:
 /matrix <subreddit> [filter1, filter2, ...]
 
 4) Filters:
@@ -277,15 +283,15 @@ async def help(interaction: discord.Interaction):
 5) Example:
     a) /matrix cats mod=Xyreo date=14/03/2023 concise
 
-       - Returns Modlogs of r/cats by u/Xyreo on 14 March, 2023, with only the total mod actions.
+       - Returns Mod logs of r/cats by u/Xyreo on 14 March, 2023, with only the total mod actions.
 
     b) /matrix cats days=7 onlymods
 
-       - Returns Modlogs of r/cats by all mods in the last 7 days, with only the name of the mods.
+       - Returns Mod logs of r/cats by all mods in the last 7 days, with only the name of the mods.
 
     c) /matrix cats mod=Xyreo seconds=3600
 
-       - Returns Modlogs of r/cats by u/Xyreo in the last hour, with all the details.
+       - Returns Mod logs of r/cats by u/Xyreo in the last hour, with all the details.
 
 Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
 """
@@ -356,7 +362,7 @@ async def sublist_command(interaction: discord.Interaction):
 
 @tree.command(
     name="matrix",
-    description="Modlogs Matrix",
+    description="Mod logs Matrix",
     guild=discord.Object(id=data["test_guild_id"]),
 )
 @app_commands.describe(
@@ -364,9 +370,9 @@ async def sublist_command(interaction: discord.Interaction):
     mod="Filters by Moderator Name",
     onlymods="Only names of moderators are displayed",
     concise="Only total mod actions are displayed",
-    date="Specific Date's Modlogs",
-    days="Last n days' Modlogs",
-    seconds="Last n seconds' Modlogs",
+    date="Specific Date's Mod logs",
+    days="Last n days' Mod logs",
+    seconds="Last n seconds' Mod logs",
 )
 async def matrix_command(
     interaction: discord.Interaction,
@@ -418,7 +424,7 @@ async def matrix_command(
         print("Query Processing:", time.time() - start)
         start = time.time()
         image = await api_data(query, onlymods, concise)
-        query = f"Modlogs of r/{subreddit}"
+        query = f"Mod logs of r/{subreddit}"
         if mod:
             query += f" by u/{mod}"
         if date:
