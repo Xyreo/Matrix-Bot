@@ -1,0 +1,8 @@
+opencv-python
+discord
+imgkit
+numpy
+pandas
+requests
+pillow
+pyppeteer
