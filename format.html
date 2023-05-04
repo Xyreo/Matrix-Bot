@@ -1,0 +1,90 @@
+<script>
+    table = document.querySelector('table');
+    tbody = table.querySelector('tbody');
+    thead = table.querySelector('thead');
+    thead.rows[0].cells[0].innerHTML = 'Srno';
+
+    for (let i = 0; i < tbody.rows.length; i++) {
+        tbody.rows[i].cells[0].innerHTML = i + 1;
+    }
+
+</script>
+<link href="https://fonts.googleapis.com/css?family=Ubuntu&display=swap" rel="stylesheet">
+<style>
+    table {
+        width: 100%;
+        font-family: 'Ubuntu', sans-serif;
+        font-weight: 700;
+    }
+
+    table,
+    th,
+    td {
+        border: 1px solid black;
+        border-collapse: collapse;
+        text-align: center;
+    }
+
+    th,
+    td {
+        padding: 7px;
+    }
+
+    thead th {
+        font-weight: 800;
+        font-size: 1.15rem;
+        padding: 5px;
+        text-transform: capitalize;
+    }
+
+    td:nth-child(1) {
+        background-color: #000000;
+        color: #FFFFFF;
+    }
+
+    td:nth-child(2) {
+        color: #336ac2;
+        font-weight: 800;
+        font-size: 1.05rem;
+        border-left: 3px solid black;
+        border-right: 3px solid black;
+    }
+
+    thead th:nth-child(2),
+    thead th:nth-child(1) {
+        border-right: 3px solid black;
+    }
+
+    td:nth-last-child(1) {
+        color: #32a752;
+        font-weight: 800;
+        font-size: 1.05rem;
+        border-left: 3px solid black;
+    }
+
+    td:nth-last-child(2),
+    thead th:nth-last-child(1),
+    thead th:nth-last-child(2) {
+        border-left: 3px solid black;
+    }
+
+
+    table,
+    thead {
+        border: 3px solid black;
+    }
+
+    tr:nth-child(even) {
+        background-color: #eee;
+    }
+
+    tr:nth-child(odd) {
+        background-color: #fff;
+    }
+
+    table th:first-child,
+    th {
+        background-color: #2F4F4F;
+        color: #FFFFFF;
+    }
+</style>
