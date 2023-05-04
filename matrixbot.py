@@ -226,11 +226,11 @@ async def send_message(
 
     if interaction.guild is None:
         webhook(
-            content=f"```{text}```\n```User: {interaction.user.name}```\n```Url: {interaction.channel.jump_url}/{interaction.id}```"
+            content=f"{text}\n```User: {interaction.user.name}```\nUrl: {interaction.channel.jump_url}/{interaction.id}"
         )
     else:
         webhook(
-            content=f"```{text}```\n```User: {interaction.user.name}```\n```Channel: {interaction.channel.name}```\n```Server: {interaction.guild.name}```\n```Url: {interaction.channel.jump_url}/{interaction.id}```"
+            content=f"{text}\n```User: {interaction.user.name}```\n```Channel: {interaction.channel.name}```\n```Server: {interaction.guild.name}```\nUrl: {interaction.channel.jump_url}/{interaction.id}"
         )
 
     print("Sending Message:", time.time() - start)
@@ -247,9 +247,14 @@ async def invite(interaction: discord.Interaction):
     start = time.time()
     await interaction.response.defer(thinking=True)
     invite_link = data["invite_link"]
+    await interaction.followup.send(
+        embed=discord.Embed(
+            title="Invite Link", description=f"[Click Here]({invite_link})"
+        )
+    )
+
     await send_message(
-        interaction,
-        text=f"Invite me to your server using this link:\n{invite_link}",
+        interaction, text=f"[Invite Link] ({invite_link})", only_webhook=True
     )
 
 
