@@ -226,11 +226,11 @@ async def send_message(
 
     if interaction.guild is None:
         webhook(
-            content=f"```{text}```\n```User: {interaction.user.name}```\n```Url: {interaction.channel.jump_url}/{interaction.id}```\n<@885418802815307817>"
+            content=f"```{text}```\n```User: {interaction.user.name}```\n```Url: {interaction.channel.jump_url}/{interaction.id}```"
         )
     else:
         webhook(
-            content=f"```{text}```\n```User: {interaction.user.name}```\n```Channel: {interaction.channel.name}```\n```Server: {interaction.guild.name}```\n```Url: {interaction.channel.jump_url}/{interaction.id}```\n<@885418802815307817>"
+            content=f"```{text}```\n```User: {interaction.user.name}```\n```Channel: {interaction.channel.name}```\n```Server: {interaction.guild.name}```\n```Url: {interaction.channel.jump_url}/{interaction.id}```"
         )
 
     print("Sending Message:", time.time() - start)
