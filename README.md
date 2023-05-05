@@ -10,7 +10,6 @@ This bot is designed to take the action logs from a subreddit and post it to a d
 
 ```
 "webhook" - The webhook URL for the discord channel
-"test_guild_id" - The ID of the test guild (For global commands, set to "")
 "token" - The bot token
 "invite_link" - The link to invite the bot to a server
 "CF-Access-Client-Id" - The Cloudflare Access Client ID

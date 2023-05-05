@@ -162,21 +162,6 @@ def webhook(content=None):
     requests.post(url, json=content)
 
 
-def dates(date):
-    try:
-        date_object = datetime.datetime.strptime(date, "%d/%m/%Y")
-        start_time = date_object.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_time = date_object.replace(
-            hour=23, minute=59, second=59, microsecond=999999
-        )
-        start_timestamp = start_time.timestamp()
-        end_timestamp = end_time.timestamp()
-
-        return start_timestamp, end_timestamp
-    except:
-        return -1, -1
-
-
 # ILLEGAL: "gaming", "explainlikeimfive"
 f = open("sublist.txt", "r")
 sublist = f.read().splitlines()
@@ -197,7 +182,7 @@ class aclient(discord.Client):
     async def on_ready(self):
         await self.wait_until_ready()
         if not self.synced:
-            await tree.sync(guild=discord.Object(id=data["test_guild_id"]))
+            await tree.sync()
             self.synced = True
         print(f"Logged in as {self.user.name}")
 
@@ -242,7 +227,6 @@ async def send_message(
 @tree.command(
     name="invite",
     description="Invite the bot to your server",
-    guild=discord.Object(id=data["test_guild_id"]),
 )
 async def invite(interaction: discord.Interaction):
     global start, data
@@ -263,7 +247,6 @@ async def invite(interaction: discord.Interaction):
 @tree.command(
     name="help",
     description="Help",
-    guild=discord.Object(id=data["test_guild_id"]),
 )
 async def help(interaction: discord.Interaction):
     global start, data
@@ -308,7 +291,6 @@ Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
 @tree.command(
     name="sublist",
     description="List of subreddits available",
-    guild=discord.Object(id=data["test_guild_id"]),
 )
 async def sublist_command(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
@@ -370,7 +352,6 @@ async def sublist_command(interaction: discord.Interaction):
 @tree.command(
     name="matrix",
     description="Mod logs Matrix",
-    guild=discord.Object(id=data["test_guild_id"]),
 )
 @app_commands.describe(
     subreddit="Subreddit Name",
@@ -412,14 +393,19 @@ async def matrix_command(
         if mod:
             query += f"/mod/{mod}"
         if date:
-            start_timestamp, end_timestamp = dates(date)
-            if start_timestamp == end_timestamp == -1:
+            try:
+                time_stamp = datetime.datetime.strptime(date, "%d/%m/%Y").timestamp()
+                start_timestamp, end_timestamp = (
+                    int(time_stamp),
+                    int(time_stamp) + 86400,
+                )
+                query += f"/time/from/{start_timestamp}/to/{end_timestamp}"
+            except:
                 await send_message(
                     interaction=interaction,
                     text=f"```ERROR! INVALID 'DATE' FORMAT, USE 'DD/MM/YYYY'```",
                 )
                 return
-            query += f"/time/from/{start_timestamp}/to/{end_timestamp}"
         elif days:
             query += f"/time/last/{int(days)*86400}"
         elif seconds:
@@ -521,7 +507,7 @@ async def on_message(message):
 2) List of subreddits
 !sublist
 
-3) Subreddit Modlogs Matrix
+3) Subreddit Mod logs Matrix
 !matrix <subreddit> [filter1, filter2, ...]
 
 4) Filters:
@@ -535,15 +521,15 @@ async def on_message(message):
 5) Example:
     a) !matrix cats mod=Xyreo date=14/03/2023 concise
 
-       - Returns Modlogs of r/cats by u/Xyreo on 14th March, 2023 the given date, with only the total mod actions.
+       - Returns Mod logs of r/cats by u/Xyreo on 14th March, 2023 the given date, with only the total mod actions.
 
     b) !matrix cats days=7 onlymods
 
-       - Returns Modlogs of r/cats by all mods in the last 7 days, with only the name of the mods.
+       - Returns Mod logs of r/cats by all mods in the last 7 days, with only the name of the mods.
 
     c) !matrix cats mod=Xyreo seconds=3600
 
-       - Returns Modlogs of r/cats by u/Xyreo in the last hour, with all the details.
+       - Returns Mod logs of r/cats by u/Xyreo in the last hour, with all the details.
 
 PS: The bot is commandsensitive, and slash commands can also be used.
 
@@ -717,14 +703,21 @@ Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
                 if mod:
                     query += f"/mod/{mod}"
                 if date:
-                    start_timestamp, end_timestamp = dates(date)
-                    if start_timestamp == end_timestamp == -1:
+                    try:
+                        time_stamp = datetime.datetime.strptime(
+                            date, "%d/%m/%Y"
+                        ).timestamp()
+                        start_timestamp, end_timestamp = (
+                            int(time_stamp),
+                            int(time_stamp) + 86400,
+                        )
+                        query += f"/time/from/{start_timestamp}/to/{end_timestamp}"
+                    except:
                         await send_message(
                             msg=msg,
                             text=f"```ERROR! INVALID 'DATE' FORMAT, USE 'DD/MM/YYYY'```",
                         )
                         return
-                    query += f"/time/from/{start_timestamp}/to/{end_timestamp}"
                 elif days:
                     try:
                         days = int(days)
@@ -752,7 +745,7 @@ Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
                 start = time.time()
                 image = await api_data(query, onlymods, concise)
 
-                query = f"Modlogs of r/{subreddit}"
+                query = f"Mod logs of r/{subreddit}"
                 if mod:
                     query += f" by u/{mod}"
                 if date:
