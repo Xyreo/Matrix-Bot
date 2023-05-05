@@ -189,7 +189,9 @@ f.close()
 
 class aclient(discord.Client):
     def __init__(self):
-        super().__init__(intents=discord.Intents.default())
+        intent = discord.Intents.default()
+        intent.message_content = True
+        super().__init__(intents=intent)
         self.synced = False
 
     async def on_ready(self):
@@ -458,6 +460,330 @@ async def matrix_command(
             text=f"```ERROR! SUBREDDIT '{subreddit}' NOT IN DATABASE```",
         )
         return
+
+
+@client.event
+async def on_message(message):
+    global start, data
+
+    async def send_message(msg=None, text="", image=None, query="", only_webhook=False):
+        global start, data
+        if image == -1:
+            text = "```QUERY RETURNED NO RESULT```"
+            image = None
+
+        if not only_webhook:
+            if image:
+                embed = discord.Embed(
+                    title=query,
+                    color=0x2F4F4F,
+                )
+                embed.set_image(url="attachment://output.png")
+                await msg.edit(embed=embed, content=text, attachments=[image])
+                text = query
+            else:
+                await msg.edit(content=text)
+
+        if message.guild is None:
+            webhook(
+                content=f"{text}\n```User: {message.author.name}```\nUrl: {message.channel.jump_url}/{message.id}"
+            )
+        else:
+            webhook(
+                content=f"{text}\n```User: {message.author.name}```\n```Channel: {message.channel.name}```\n```Server: {message.guild.name}```\nUrl: {message.channel.jump_url}/{message.id}"
+            )
+
+        print("Sending Message:", time.time() - start)
+        start = time.time()
+
+    if message.content == "!invite":
+        start = time.time()
+        invite_link = data["invite_link"]
+        await message.reply(
+            embed=discord.Embed(
+                title="Invite Link", description=f"[Click Here]({invite_link})"
+            )
+        )
+
+        await send_message(
+            message, text=f"[Invite Link] ({invite_link})", only_webhook=True
+        )
+
+    elif message.content == "!help" or message.content == "!matrix":
+        start = time.time()
+        help_text = """
+```The following commands are available: ```
+```yaml
+1) Help commands
+!help
+/help
+
+2) List of subreddits
+!sublist
+
+3) Subreddit Modlogs Matrix
+!matrix <subreddit> [filter1, filter2, ...]
+
+4) Filters:
+    a) mod=<modname>
+    b) date=<dd/mm/yyyy>
+       days=<integer>
+       seconds=<integer>
+    c) onlymods
+    d) concise
+
+5) Example:
+    a) !matrix cats mod=Xyreo date=14/03/2023 concise
+
+       - Returns Modlogs of r/cats by u/Xyreo on 14th March, 2023 the given date, with only the total mod actions.
+
+    b) !matrix cats days=7 onlymods
+
+       - Returns Modlogs of r/cats by all mods in the last 7 days, with only the name of the mods.
+
+    c) !matrix cats mod=Xyreo seconds=3600
+
+       - Returns Modlogs of r/cats by u/Xyreo in the last hour, with all the details.
+
+PS: The bot is commandsensitive, and slash commands can also be used.
+
+Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
+"""
+
+        await message.reply(content=help_text)
+        await send_message(message, text=help_text, only_webhook=True)
+
+    elif message.content == "!sublist":
+        start = time.time()
+        split_len = 15
+        pages = {}
+        for i in range(0, len(sublist), split_len):
+            d = {}
+            for j in range(i, min(i + split_len, len(sublist))):
+                d[j + 1] = "r/" + sublist[j]
+            pages[i // split_len + 1] = d
+
+        next = Button(style=discord.ButtonStyle.green, label="Next")
+        prev = Button(style=discord.ButtonStyle.green, label="Prev", disabled=True)
+        view = View(timeout=None)
+        view.add_item(prev)
+        view.add_item(next)
+
+        def pprint(d):
+            s = ""
+            for i in d:
+                s += f"{i}. {d[i]}\n"
+            return s
+
+        async def page_change(interaction: discord.Interaction, change):
+            page_number = int(
+                interaction.message.embeds[0].footer.text.split("/")[0].split(" ")[1]
+            )
+            page_number += change
+            if page_number == len(pages):
+                next.disabled = True
+            if page_number == 1:
+                prev.disabled = True
+            if page_number < len(pages) and page_number > 1:
+                next.disabled = False
+                prev.disabled = False
+            await interaction.response.edit_message(
+                embed=discord.Embed(
+                    title="Available Subreddits",
+                    description=pprint(pages[page_number]),
+                ).set_footer(text=f"Page {page_number}/{len(pages)}"),
+                view=view,
+            )
+
+        next.callback = lambda i: page_change(i, 1)
+        prev.callback = lambda i: page_change(i, -1)
+        await message.reply(
+            embed=discord.Embed(
+                title="Available Subreddits",
+                description=pprint(pages[1]),
+            ).set_footer(text=f"Page 1/{len(pages)}"),
+            view=view,
+        )
+
+        await send_message(message, text="Available Subreddits", only_webhook=True)
+
+    elif (
+        message.content.split(" ")[0] == "!matrix"
+        and len(message.content.split(" ")) > 1
+    ):
+
+        async def querying():
+            global start, data
+            start = time.time()
+            message_list = message.content.lower().split(" ")
+            subreddit = message_list[1]
+            msg = await message.reply(content="Processing...")
+            if subreddit in sublist:
+                queries = message_list[2:]
+                extra_commands = ["onlymods", "concise"]
+                valid_commands = {
+                    "mod": ["mod", "moderator"],
+                    "date": ["date"],
+                    "day": ["days", "day"],
+                    "sec": ["seconds", "second", "secs", "sec"],
+                }
+                valid_commands_list = [
+                    j for i in list(valid_commands.values()) for j in i
+                ]
+                for i in queries:
+                    if i not in extra_commands:
+                        if not any(
+                            [i.startswith(j + "=") for j in valid_commands_list]
+                        ):
+                            if i in valid_commands_list:
+                                await send_message(
+                                    msg=msg,
+                                    text=f"```ERROR! ADD AN EQUALS SIGN (=) AFTER '{i}' WITHOUT LEAVING A SPACE```",
+                                )
+                                return
+                            else:
+                                await send_message(
+                                    msg=msg,
+                                    text=f"```ERROR! '{i}' IS NOT A VALID COMMAND```",
+                                )
+                                return
+
+                onlymods = False
+                concise = False
+                if "onlymods" in queries:
+                    queries.remove("onlymods")
+                    onlymods = True
+                if "concise" in queries:
+                    queries.remove("concise")
+                    concise = True
+
+                query_dict = {}
+                for i in queries:
+                    query_dict[i.split("=")[0].lower()] = i.split("=")[1]
+                    if len(i.split("=")) > 2:
+                        await send_message(
+                            msg=msg,
+                            text=f"```ERROR! '{i}' IS NOT A VALID COMMAND, IT CONTAINS MORE THAN ONE EQUALS (=) SIGN```",
+                        )
+                        return
+
+                given_commands = []
+
+                def find_duplicate():
+                    for i in query_dict.keys():
+                        for j in valid_commands.values():
+                            if i in j:
+                                if j not in given_commands:
+                                    given_commands.append(
+                                        list(valid_commands.keys())[
+                                            list(valid_commands.values()).index(j)
+                                        ]
+                                    )
+                                else:
+                                    return True
+
+                if find_duplicate():
+                    await send_message(
+                        msg=msg,
+                        text="```ERROR! ONE OR MORE DUPLICATE COMMANDS FOUND```",
+                    )
+                    return
+
+                mod = query_dict.get("mod", query_dict.get("moderator", None))
+                date = query_dict.get("date", None)
+                days = query_dict.get("days", query_dict.get("day", None))
+                seconds = query_dict.get(
+                    "seconds",
+                    query_dict.get(
+                        "second",
+                        query_dict.get("secs", query_dict.get("sec", None)),
+                    ),
+                )
+
+                if days and seconds:
+                    await send_message(
+                        msg=msg,
+                        text="```ERROR! 'DAYS' CANNOT BE USED WITH 'SECONDS'```",
+                    )
+                    return
+                if date and (days or seconds):
+                    await send_message(
+                        msg=msg,
+                        text=f"```ERROR! 'DATE' CANNOT BE USED WITH '{'DAYS' if days else 'SECONDS'}'```",
+                    )
+                    return
+
+                query = f"{subreddit}"
+                if mod:
+                    query += f"/mod/{mod}"
+                if date:
+                    start_timestamp, end_timestamp = dates(date)
+                    if start_timestamp == end_timestamp == -1:
+                        await send_message(
+                            msg=msg,
+                            text=f"```ERROR! INVALID 'DATE' FORMAT, USE 'DD/MM/YYYY'```",
+                        )
+                        return
+                    query += f"/time/from/{start_timestamp}/to/{end_timestamp}"
+                elif days:
+                    try:
+                        days = int(days)
+                    except:
+                        await send_message(
+                            msg=msg,
+                            text=f"```ERROR! 'DAYS' SHOULD BE AN INTEGER```",
+                        )
+                        return
+                    query += f"/time/last/{days*86400}"
+                elif seconds:
+                    try:
+                        seconds = int(seconds)
+                    except:
+                        await send_message(
+                            msg=msg,
+                            text=f"```ERROR! 'SECONDS' SHOULD BE AN INTEGER```",
+                        )
+                        return
+                    query += f"/time/last/{seconds}"
+                if "/" not in query:
+                    query += "/all"
+
+                print("Query Processing:", time.time() - start)
+                start = time.time()
+                image = await api_data(query, onlymods, concise)
+
+                query = f"Modlogs of r/{subreddit}"
+                if mod:
+                    query += f" by u/{mod}"
+                if date:
+                    if os.name == "nt":
+                        date_str = datetime.datetime.strptime(
+                            date, "%d/%m/%Y"
+                        ).strftime("%#d %b, %Y")
+                    else:
+                        date_str = datetime.datetime.strptime(
+                            date, "%d/%m/%Y"
+                        ).strftime("%-d %b, %Y")
+                    query += f" on {date_str}"
+                elif days:
+                    query += f" in the last {days} days"
+                elif seconds:
+                    query += f" in the last {seconds} seconds"
+
+                await send_message(
+                    msg=msg,
+                    image=image,
+                    query=query,
+                )
+                return
+            else:
+                await send_message(
+                    msg=msg,
+                    text=f"```ERROR! SUBREDDIT '{subreddit}' NOT IN DATABASE```",
+                )
+                return
+
+        await querying()
 
 
 client.run(data["token"])
