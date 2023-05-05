@@ -188,7 +188,7 @@ class aclient(discord.Client):
 
 
 client = aclient()
-tree = app_commands.CommandTree(client, fallback_to_global=True)
+tree = app_commands.CommandTree(client)
 
 
 async def send_message(
