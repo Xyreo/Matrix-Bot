@@ -6,7 +6,7 @@ This bot is designed to take the action logs from a subreddit and post it to a d
 
 ### Setup
 
-`data.json` is a json file that contains the data needed to run the bot. It is formatted as a JSON object, with the following keys:
+`data.json` contains the data needed to run the bot. It is formatted as a JSON object, with the following keys:
 
 ```
 "webhook" - The webhook URL for the discord channel

@@ -212,9 +212,7 @@ async def send_message(
             await interaction.followup.send(content=text)
 
     if interaction.guild is None:
-        webhook(
-            content=f"{text}\n```User: {interaction.user.name}```\nUrl: {interaction.channel.jump_url}/{interaction.id}"
-        )
+        webhook(content=f"{text}\n```DM: {interaction.user.name}```")
     else:
         webhook(
             content=f"{text}\n```User: {interaction.user.name}```\n```Channel: {interaction.channel.name}```\n```Server: {interaction.guild.name}```\nUrl: {interaction.channel.jump_url}/{interaction.id}"
@@ -471,9 +469,7 @@ async def on_message(message):
                 await msg.edit(content=text)
 
         if message.guild is None:
-            webhook(
-                content=f"{text}\n```User: {message.author.name}```\nUrl: {message.channel.jump_url}/{message.id}"
-            )
+            webhook(content=f"{text}\n```DM: {message.author.name}```")
         else:
             webhook(
                 content=f"{text}\n```User: {message.author.name}```\n```Channel: {message.channel.name}```\n```Server: {message.guild.name}```\nUrl: {message.channel.jump_url}/{message.id}"
