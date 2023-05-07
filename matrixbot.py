@@ -48,7 +48,7 @@ except:
 
 async def api_data(query="", onlymods=False, concise=False):
     global start, data
-    url_matrix = f"https://lukebot.rcloud3.xyz/log/{query}"
+    url_matrix = f"https://matrixbot.rcloud3.xyz/log/{query}"
     headers = {
         "CF-Access-Client-Id": data["CF-Access-Client-Id"],
         "CF-Access-Client-Secret": data["CF-Access-Client-Secret"],
