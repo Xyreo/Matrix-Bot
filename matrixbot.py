@@ -372,6 +372,8 @@ async def matrix_command(
 ):
     global start, data
     start = time.time()
+    subreddit = subreddit.lower()
+    mod = mod.lower() if mod else None
     await interaction.response.defer(thinking=True)
     if days and seconds:
         await send_message(
