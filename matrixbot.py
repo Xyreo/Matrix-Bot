@@ -449,7 +449,7 @@ async def matrix_command(
 
 
 @client.event
-async def on_message(message):
+async def on_message(message : discord.Message):
     global start, data
 
     async def send_message(msg=None, text="", image=None, query="", only_webhook=False):
@@ -776,5 +776,38 @@ Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
 
         await querying()
 
+    elif message.content.split(" ")[0] == "!addsub" and len(message.content.split(" ")) > 1:
+        if int(message.author.id) in data["owner_ids"]:
+            message_list = message.content.lower().split(" ")
+            subreddit = message_list[1]
+            if subreddit not in sublist:
+                if 3<=len(subreddit)<=22:
+                    sublist.append(subreddit)
+                    with open("sublist.txt", "a") as f:
+                        f.write(f"\n{subreddit}")
+                    await message.reply(
+                        f"```SUBREDDIT '{subreddit}' ADDED TO DATABASE```"
+                    )
+                else:
+                    await message.reply(f"```ERROR! SUBREDDIT '{subreddit}' NOT FOUND```")
+            else:
+                await message.reply(f"```ERROR! SUBREDDIT '{subreddit}' ALREADY IN DATABASE```")
+        else:
+            await message.reply("```ERROR! YOU ARE NOT PERMITTED TO USE THIS COMMAND```")
+    
+    elif message.content.split(" ")[0] == "!removesub" and len(message.content.split(" ")) > 1:
+        if int(message.author.id) in data["owner_ids"]:
+            message_list = message.content.lower().split(" ")
+            subreddit = message_list[1]
+            if subreddit in sublist:
+                sublist.remove(subreddit)
+                with open("sublist.txt", "w") as f:
+                    f.write("\n".join(sublist))
+                await message.reply(f"```SUBREDDIT '{subreddit}' REMOVED FROM DATABASE```")
+            else:
+                await message.reply(f"```ERROR! SUBREDDIT '{subreddit}' NOT IN DATABASE```")
+        else:
+            await message.reply("```ERROR! YOU ARE NOT PERMITTED TO USE THIS COMMAND```")
+        
 
 client.run(data["token"])

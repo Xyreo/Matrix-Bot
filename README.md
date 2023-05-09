@@ -14,7 +14,10 @@ This bot is designed to take the action logs from a subreddit and post it to a d
 "invite_link" - The link to invite the bot to a server
 "CF-Access-Client-Id" - The Cloudflare Access Client ID
 "CF-Access-Client-Secret" - The Cloudflare Access Client Secret
+"owner_ids" - List of user IDs that have admin permissions
 ```
+
+`sublist.txt` contains the list of subreddits that the bot has access to. Each subreddit should be on a new line.
 
 ### Running
 
