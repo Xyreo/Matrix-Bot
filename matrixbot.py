@@ -2,15 +2,18 @@
 import asyncio
 import csv
 import datetime
+import gc
 import json
 import os
 import time
+import gspread
 
 import cv2
 import discord
 import imgkit
 import numpy as np
 import pandas as pd
+from pyautogui import FAILSAFE
 import requests
 from discord import app_commands
 from discord.ui import Button, View
@@ -46,8 +49,10 @@ except:
     pass
 
 
-async def api_data(query="", onlymods=False, concise=False):
-    global start, data
+async def api_data(query="", onlymods=False, concise=False, export=False):
+    global start, data, google_client
+    spreadsheet_url = ""
+
     url_matrix = f"https://matrixbot.rcloud3.xyz/log/{query}"
     headers = {
         "CF-Access-Client-Id": data["CF-Access-Client-Id"],
@@ -144,10 +149,25 @@ async def api_data(query="", onlymods=False, concise=False):
         ImageOps.expand(Image.open("temp/cropped.png"), border=10, fill="white").save(
             "temp/output.png"
         )
-
         print("Image Processing:", time.time() - start)
         start = time.time()
-        return discord.File(open("temp/output.png", "rb"), filename="output.png")
+
+        if export:
+            spreadsheet = google_client.create(f"Matrix {query}")
+            sheet = spreadsheet.sheet1
+            sheet.update([df.columns.values.tolist()] + df.values.tolist())
+            spreadsheet.share("", role="reader", perm_type="anyone")
+            print(f"Spreadsheet URL: {spreadsheet.url}")
+
+            spreadsheet_url = spreadsheet.url
+            print("Google spreadsheet Processing:", time.time() - start)
+
+        start = time.time()
+
+        return (
+            discord.File(open("temp/output.png", "rb"), filename="output.png"),
+            spreadsheet_url,
+        )
 
     else:
         return -1
@@ -171,6 +191,9 @@ f = open("data.json", "r")
 data = json.load(f)
 f.close()
 
+credentials = data["google-cred"]
+google_client = gspread.service_account_from_dict(credentials)
+
 
 class aclient(discord.Client):
     def __init__(self):
@@ -192,7 +215,12 @@ tree = app_commands.CommandTree(client)
 
 
 async def send_message(
-    interaction: discord.Interaction, text="", image=None, query="", only_webhook=False
+    interaction: discord.Interaction,
+    text="",
+    image=None,
+    query="",
+    only_webhook=False,
+    export="",
 ):
     global start, data
     if image == -1:
@@ -210,6 +238,10 @@ async def send_message(
             text = query
         else:
             await interaction.followup.send(content=text)
+
+        if export:
+            if image:
+                await interaction.followup.send(content=export)
 
     if interaction.guild is None:
         webhook(content=f"{text}\n```DM: {interaction.user.name}```")
@@ -359,6 +391,7 @@ async def sublist_command(interaction: discord.Interaction):
     date="Specific Date's Mod logs",
     days="Last n days' Mod logs",
     seconds="Last n seconds' Mod logs",
+    export="Exports the matrix as a CSV",
 )
 async def matrix_command(
     interaction: discord.Interaction,
@@ -369,6 +402,7 @@ async def matrix_command(
     date: str = None,
     days: int = None,
     seconds: int = None,
+    export: bool = False,
 ):
     global start, data
     start = time.time()
@@ -416,7 +450,7 @@ async def matrix_command(
 
         print("Query Processing:", time.time() - start)
         start = time.time()
-        image = await api_data(query, onlymods, concise)
+        image, spreadsheet_url = await api_data(query, onlymods, concise, export)
         query = f"Mod logs of r/{subreddit}"
         if mod:
             query += f" by u/{mod}"
@@ -434,10 +468,9 @@ async def matrix_command(
             query += f" in the last {days} days"
         elif seconds:
             query += f" in the last {seconds} seconds"
+
         await send_message(
-            interaction=interaction,
-            image=image,
-            query=query,
+            interaction=interaction, image=image, query=query, export=spreadsheet_url
         )
         return
     else:
@@ -449,10 +482,12 @@ async def matrix_command(
 
 
 @client.event
-async def on_message(message : discord.Message):
+async def on_message(message: discord.Message):
     global start, data
 
-    async def send_message(msg=None, text="", image=None, query="", only_webhook=False):
+    async def send_message(
+        msg=None, text="", image=None, query="", only_webhook=False, export=""
+    ):
         global start, data
         if image == -1:
             text = "```QUERY RETURNED NO RESULT```"
@@ -469,6 +504,10 @@ async def on_message(message : discord.Message):
                 text = query
             else:
                 await msg.edit(content=text)
+
+        if export:
+            if image:
+                await msg.channel.send(content=export)
 
         if message.guild is None:
             webhook(content=f"{text}\n```DM: {message.author.name}```")
@@ -593,6 +632,7 @@ Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
 
     elif (
         message.content.split(" ")[0] == "!matrix"
+        or message.content.split(" ")[0] == "!exportmatrix"
         and len(message.content.split(" ")) > 1
     ):
 
@@ -741,7 +781,14 @@ Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
 
                 print("Query Processing:", time.time() - start)
                 start = time.time()
-                image = await api_data(query, onlymods, concise)
+                image, spreadsheet_url = await api_data(
+                    query,
+                    onlymods,
+                    concise,
+                    export=True
+                    if message.content.split(" ")[0] == "!exportmatrix"
+                    else False,
+                )
 
                 query = f"Mod logs of r/{subreddit}"
                 if mod:
@@ -762,9 +809,7 @@ Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
                     query += f" in the last {seconds} seconds"
 
                 await send_message(
-                    msg=msg,
-                    image=image,
-                    query=query,
+                    msg=msg, image=image, query=query, export=spreadsheet_url
                 )
                 return
             else:
@@ -776,12 +821,15 @@ Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
 
         await querying()
 
-    elif message.content.split(" ")[0] == "!addsub" and len(message.content.split(" ")) > 1:
+    elif (
+        message.content.split(" ")[0] == "!addsub"
+        and len(message.content.split(" ")) > 1
+    ):
         if int(message.author.id) in data["owner_ids"]:
             message_list = message.content.lower().split(" ")
             subreddit = message_list[1]
             if subreddit not in sublist:
-                if 3<=len(subreddit)<=22:
+                if 3 <= len(subreddit) <= 22:
                     sublist.append(subreddit)
                     with open("sublist.txt", "a") as f:
                         f.write(f"\n{subreddit}")
@@ -789,13 +837,22 @@ Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
                         f"```SUBREDDIT '{subreddit}' ADDED TO DATABASE```"
                     )
                 else:
-                    await message.reply(f"```ERROR! SUBREDDIT '{subreddit}' NOT FOUND```")
+                    await message.reply(
+                        f"```ERROR! SUBREDDIT '{subreddit}' NOT FOUND```"
+                    )
             else:
-                await message.reply(f"```ERROR! SUBREDDIT '{subreddit}' ALREADY IN DATABASE```")
+                await message.reply(
+                    f"```ERROR! SUBREDDIT '{subreddit}' ALREADY IN DATABASE```"
+                )
         else:
-            await message.reply("```ERROR! YOU ARE NOT PERMITTED TO USE THIS COMMAND```")
-    
-    elif message.content.split(" ")[0] == "!removesub" and len(message.content.split(" ")) > 1:
+            await message.reply(
+                "```ERROR! YOU ARE NOT PERMITTED TO USE THIS COMMAND```"
+            )
+
+    elif (
+        message.content.split(" ")[0] == "!removesub"
+        and len(message.content.split(" ")) > 1
+    ):
         if int(message.author.id) in data["owner_ids"]:
             message_list = message.content.lower().split(" ")
             subreddit = message_list[1]
@@ -803,11 +860,17 @@ Credit to Xyreo, ZockerMarcelo and okaybro for developing this feature <3```
                 sublist.remove(subreddit)
                 with open("sublist.txt", "w") as f:
                     f.write("\n".join(sublist))
-                await message.reply(f"```SUBREDDIT '{subreddit}' REMOVED FROM DATABASE```")
+                await message.reply(
+                    f"```SUBREDDIT '{subreddit}' REMOVED FROM DATABASE```"
+                )
             else:
-                await message.reply(f"```ERROR! SUBREDDIT '{subreddit}' NOT IN DATABASE```")
+                await message.reply(
+                    f"```ERROR! SUBREDDIT '{subreddit}' NOT IN DATABASE```"
+                )
         else:
-            await message.reply("```ERROR! YOU ARE NOT PERMITTED TO USE THIS COMMAND```")
-        
+            await message.reply(
+                "```ERROR! YOU ARE NOT PERMITTED TO USE THIS COMMAND```"
+            )
+
 
 client.run(data["token"])
